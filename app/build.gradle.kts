@@ -21,7 +21,7 @@ plugins {
 
 android {
     // 1. ZMENA: Unikátne meno pre váš projekt
-    namespace = "com.aquamates.fishtankmanager"
+    namespace = "com.example.diceroller"
     compileSdk = 35
 
     defaultConfig {
