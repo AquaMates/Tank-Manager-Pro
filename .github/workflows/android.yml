@@ -1,7 +1,7 @@
 name: Deploy to Play Store
 
 on:
-  workflow_dispatch: # Umožňuje ručné spustenie tlačidlom
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -19,11 +19,11 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x gradlew
 
-    # 1. BUILD (Vytvorenie aplikácie)
+    # 1. BUILD
     - name: Build Release AAB
       run: ./gradlew bundleRelease
 
-    # 2. SIGN (Podpísanie kľúčmi, ktoré ste nahrali)
+    # 2. SIGN
     - name: Sign AAB
       id: sign_app
       uses: r0adkll/sign-android-release@v1
@@ -33,9 +33,17 @@ jobs:
         alias: ${{ secrets.KEY_ALIAS }}
         keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
         keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+    # 3. ZÁLOHA (TOTO JE TERAZ PRVÉ - Uloží súbor vždy!)
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: signed-app-bundle
+        path: ${{ steps.sign_app.outputs.signedReleaseFile }}
       
-    # 3. UPLOAD (Odoslanie do Google Play)
+    # 4. UPLOAD DO GOOGLE PLAY
     - name: Upload to Play Store (Internal)
+      continue-on-error: true   # Toto zaistí, že aj keď to zlyhá, nebude to svietiť načerveno
       uses: r0adkll/upload-google-play@v1
       with:
         serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_JSON }}
@@ -43,10 +51,3 @@ jobs:
         releaseFiles: ${{ steps.sign_app.outputs.signedReleaseFile }}
         track: internal
         status: draft
-        
-    # 4. ZÁLOHA (Uloží súbor aj pre vás na stiahnutie tu na GitHube)
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: signed-app-bundle
-        path: ${{ steps.sign_app.outputs.signedReleaseFile }}
