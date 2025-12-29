@@ -1,32 +1,52 @@
-name: Android Build
+name: Deploy to Play Store
 
 on:
-  workflow_dispatch: # Umožní spustiť to tlačidlom ručne
-  push:
-    branches: [ "main", "master" ]
+  workflow_dispatch: # Umožňuje ručné spustenie tlačidlom
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: set up JDK 17
+    - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
 
-    - name: Grant execute permission for gradlew
+    - name: Make gradlew executable
       run: chmod +x gradlew
 
-    - name: Build with Gradle
-      run: ./gradlew buildDebug
+    # 1. BUILD (Vytvorenie aplikácie)
+    - name: Build Release AAB
+      run: ./gradlew bundleRelease
 
-    - name: Upload APK
+    # 2. SIGN (Podpísanie kľúčmi, ktoré ste nahrali)
+    - name: Sign AAB
+      id: sign_app
+      uses: r0adkll/sign-android-release@v1
+      with:
+        releaseDirectory: app/build/outputs/bundle/release
+        signingKeyBase64: ${{ secrets.KEYSTORE_FILE }}
+        alias: ${{ secrets.KEY_ALIAS }}
+        keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+        keyPassword: ${{ secrets.KEY_PASSWORD }}
+      
+    # 3. UPLOAD (Odoslanie do Google Play)
+    - name: Upload to Play Store (Internal)
+      uses: r0adkll/upload-google-play@v1
+      with:
+        serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_JSON }}
+        packageName: com.example.mycleanapp
+        releaseFiles: ${{ steps.sign_app.outputs.signedReleaseFile }}
+        track: internal
+        status: draft
+        
+    # 4. ZÁLOHA (Uloží súbor aj pre vás na stiahnutie tu na GitHube)
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        name: signed-app-bundle
+        path: ${{ steps.sign_app.outputs.signedReleaseFile }}
